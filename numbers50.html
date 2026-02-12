@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Numbers 1-50</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f8ff; text-align: center; padding: 15px; }
+    h1 { font-size: 28px; color: #1565c0; }
+    .timer { font-size: 22px; color: red; font-weight: bold; }
+    .number { 
+      font-size: 200px; 
+      font-weight: bold; 
+      color: #e91e63; 
+      margin: 20px; 
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+      line-height: 1;
+    }
+    button { 
+      font-size: 20px; 
+      padding: 14px 28px; 
+      margin: 10px; 
+      border: none; 
+      border-radius: 10px; 
+      cursor: pointer; 
+    }
+    .correct { background: #4CAF50; color: white; }
+    .wrong { background: #f44336; color: white; }
+    .control { background: #2196F3; color: white; }
+    .stats { font-size: 18px; margin-top: 20px; }
+    .wrong-list { color: #d32f2f; }
+    @media (max-width:600px) { 
+      .number { font-size: 140px; } 
+    }
+    @media (min-width:768px) { 
+      .number { font-size: 240px; } 
+    }
+  </style>
+</head>
+<body>
+  <h1>🔢 Numbers 1-50</h1>
+  <div class="timer">⏱ Time Left: <span id="time">20</span>s</div>
+  <div id="number" class="number">1</div>
+  <br>
+  <button class="control" onclick="speakCurrent()">🔊 Hear Again</button>
+  <br><br>
+  <button class="correct" onclick="markCorrect()">✔ Correct</button>
+  <button class="wrong" onclick="markWrong()">❌ Incorrect</button>
+  <div class="stats">
+    <p>Total: <span id="total">0</span></p>
+    <p>Correct: <span id="correct">0</span></p>
+    <p>Incorrect: <span id="wrong">0</span></p>
+    <p class="wrong-list">Wrong Numbers: <span id="wrongList">None</span></p>
+  </div>
+  <button class="control" onclick="window.location.href='index.html'">🏠 Back to Menu</button>
+
+  <script>
+    // Generate numbers 1-50
+    let numbers = [];
+    for (let i = 1; i <= 50; i++) {
+      numbers.push(i);
+    }
+    let index = 0;
+    let current = 0;
+    let locked = false;
+    let total = 0, correct = 0, wrong = 0;
+    let wrongNumbers = new Set();
+    let timeLeft = 20;
+    let timer;
+
+    startNewRound();
+
+    function startNewRound() {
+      numbers = shuffle([...numbers]); // Reshuffle full list
+      index = 0;
+      total = correct = wrong = 0;
+      wrongNumbers.clear();
+      update();
+      generate();
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function generate() {
+      if (index >= numbers.length) {
+        const percentage = Math.round((correct / total) * 100) || 0;
+        alert(`🎉 Round Complete!\nScore: ${correct}/${total} (${percentage}%)`);
+        clearInterval(timer);
+        return;
+      }
+      current = numbers[index++];
+      timeLeft = 20;
+      document.getElementById("time").textContent = timeLeft;
+      display();
+      clearInterval(timer);
+      startTimer();
+    }
+
+    function display() {
+      document.getElementById("number").textContent = current;
+    }
+
+    function speakAndNext(text) {
+      locked = true;
+      clearInterval(timer);
+      speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'en-US';
+      msg.rate = 0.85;
+      msg.pitch = 1.1;
+      msg.onend = () => { locked = false; generate(); };
+      speechSynthesis.speak(msg);
+    }
+
+    function speakCurrent() {
+      if (!current) return;
+      const msg = new SpeechSynthesisUtterance(`Number ${current}`);
+      msg.rate = 0.85; msg.pitch = 1.1;
+      speechSynthesis.speak(msg);
+    }
+
+    function markCorrect() {
+      if (locked) return;
+      total++; correct++;
+      update();
+      speakAndNext(`Correct! Number ${current}`);
+    }
+
+    function markWrong() {
+      if (locked) return;
+      total++; wrong++;
+      wrongNumbers.add(current);
+      update();
+      speakAndNext(`Incorrect! It's number ${current}`);
+    }
+
+    function startTimer() {
+      timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById("time").textContent = timeLeft;
+        if (timeLeft <= 0 && !locked) {
+          clearInterval(timer);
+          total++; wrong++;
+          wrongNumbers.add(current);
+          update();
+          speakAndNext(`Time up! It's number ${current}`);
+        }
+      }, 1000);
+    }
+
+    function update() {
+      document.getElementById("total").textContent = total;
+      document.getElementById("correct").textContent = correct;
+      document.getElementById("wrong").textContent = wrong;
+      document.getElementById("wrongList").textContent = wrongNumbers.size ? [...wrongNumbers].join(", ") : "None";
+    }
+  </script>
+</body>
+</html>

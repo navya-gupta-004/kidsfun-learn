@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Colors & Sorting</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f8ff; text-align: center; padding: 15px; }
+    h1 { font-size: 24px; color: #1565c0; }
+    .timer { font-size: 20px; color: red; font-weight: bold; }
+    #item { width: 180px; height: 180px; margin: 20px auto; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 0; transition: transform 0.2s; }
+    #item img { width: 100%; height: 100%; object-fit: contain; }
+    .bins { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; margin: 30px 0; }
+    .bin { width: 140px; height: 140px; border: 4px dashed #666; border-radius: 16px; font-size: 28px; font-weight: bold; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+    .bin.correct { border-color: #4CAF50; transform: scale(1.1); }
+    .bin.wrong { border-color: #f44336; animation: shake 0.4s; }
+    @keyframes shake { 0%,100% {transform: translateX(0);} 25% {transform: translateX(-8px);} 75% {transform: translateX(8px);} }
+    button { font-size: 18px; padding: 12px 24px; margin: 8px; border: none; border-radius: 8px; cursor: pointer; }
+    .control { background: #2196F3; color: white; }
+    .stats { font-size: 16px; margin-top: 15px; }
+    .wrong-list { color: #d32f2f; }
+    @media (max-width:600px) { #item, .bin { width: 140px; height: 140px; } .bins { gap: 12px; } }
+  </style>
+</head>
+<body>
+  <h1>🌈 Colors & Sorting</h1>
+  <div class="timer">⏱ Time Left: <span id="time">10</span>s</div>
+  <div id="item" draggable="true"><img id="itemImg" src=""></div>
+  <div class="bins">
+	  <div class="bin" data-color="red"    style="background:#ff5252;">Red</div>
+	  <div class="bin" data-color="blue"   style="background:#448aff;">Blue</div>
+	  <div class="bin" data-color="yellow" style="background:#ffeb3b; color:#333;">Yellow</div>
+	  <div class="bin" data-color="green"  style="background:#66bb6a;">Green</div>
+	  <div class="bin" data-color="purple" style="background:#ab47bc;">Purple</div>
+	  <div class="bin" data-color="orange" style="background:#ff9800;">Orange</div>
+	  <div class="bin" data-color="pink"   style="background:#F4C2C2;">Pink</div>
+	  <div class="bin" data-color="brown"  style="background:#8d6e63;">Brown</div>
+  </div>
+  <button class="control" onclick="speakCurrent()">🔊 Hear Again</button>
+  <div class="stats">
+    <p>Total: <span id="total">0</span></p>
+    <p>Correct: <span id="correct">0</span></p>
+    <p>Incorrect: <span id="wrong">0</span></p>
+    <p class="wrong-list">Wrong Colors: <span id="wrongList">None</span></p>
+  </div>
+  <button class="control" onclick="window.location.href='index.html'">🏠 Back to Menu</button>
+
+  <script>
+    const colorItems = {
+	  red:    { name: "Red Apple",     img: "red_apple.png" },
+	  blue:   { name: "Blue Car",      img: "blue_car.png" },
+	  yellow: { name: "Yellow Sun",    img: "yellow_sun.png" },
+	  green:  { name: "Green Leaf",    img: "green_leaf.png" },
+	  purple: { name: "Purple Grapes", img: "purple_grapes.png" },
+	  orange: { name: "Orange Pumpkin",img: "orange_pumpkin.png" },
+	  pink:   { name: "Pink Flower",   img: "pink_flower.png" },
+	  brown:  { name: "Brown Bear",    img: "brown_bear.png" }
+	};
+
+    const colors = Object.keys(colorItems);
+    let currentColor = "";
+    let locked = false;
+    let total = 0, correct = 0, wrong = 0;
+    let wrongColors = new Set();
+    let timeLeft = 20;
+    let timer;
+
+    startNewRound();
+
+    function startNewRound() {
+      total = correct = wrong = 0;
+      wrongColors.clear();
+      update();
+      generate();
+    }
+
+    function generate() {
+      currentColor = colors[Math.floor(Math.random() * colors.length)];
+      const item = colorItems[currentColor];
+      document.getElementById("itemImg").src = "images/colors/" + item.img;
+      timeLeft = 20;
+      document.getElementById("time").textContent = timeLeft;
+      clearInterval(timer);
+      startTimer();
+    }
+
+    function speakAndNext(text) {
+      locked = true;
+      clearInterval(timer);
+      speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'en-US';
+      msg.rate = 0.85;
+      msg.pitch = 1.1;
+      msg.onend = () => { locked = false; generate(); };
+      speechSynthesis.speak(msg);
+    }
+
+    function speakCurrent() {
+      if (!currentColor) return;
+      const item = colorItems[currentColor];
+      const msg = new SpeechSynthesisUtterance(`This is a ${item.name}`);
+      msg.rate = 0.85; msg.pitch = 1.1;
+      speechSynthesis.speak(msg);
+    }
+
+    document.getElementById("item").ondragstart = e => {
+      e.dataTransfer.setData("text/plain", currentColor);
+    };
+
+    document.querySelectorAll(".bin").forEach(bin => {
+      bin.ondragover = e => e.preventDefault();
+      bin.ondrop = e => {
+        e.preventDefault();
+        if (locked) return;
+        const droppedColor = e.dataTransfer.getData("text/plain");
+        total++;
+        if (droppedColor === bin.dataset.color) {
+          correct++;
+          bin.classList.add("correct");
+          setTimeout(() => bin.classList.remove("correct"), 800);
+          speakAndNext(`Great job! That's ${colorItems[currentColor].name}`);
+        } else {
+          wrong++;
+          wrongColors.add(currentColor);
+          bin.classList.add("wrong");
+          setTimeout(() => bin.classList.remove("wrong"), 800);
+          speakAndNext(`Oops! This is ${colorItems[currentColor].name}`);
+        }
+        update();
+      };
+    });
+
+    function startTimer() {
+      timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById("time").textContent = timeLeft;
+        if (timeLeft <= 0 && !locked) {
+          clearInterval(timer);
+          total++; wrong++;
+          wrongColors.add(currentColor);
+          update();
+          speakAndNext(`Time up! This is ${colorItems[currentColor].name}`);
+        }
+      }, 1000);
+    }
+
+    function update() {
+      document.getElementById("total").textContent = total;
+      document.getElementById("correct").textContent = correct;
+      document.getElementById("wrong").textContent = wrong;
+      document.getElementById("wrongList").textContent = wrongColors.size ? [...wrongColors].join(", ") : "None";
+    }
+  </script>
+</body>
+</html>

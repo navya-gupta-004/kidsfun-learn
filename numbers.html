@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Numbers & Counting</title>
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f8ff; text-align: center; padding: 15px; }
+    h1 { font-size: 24px; color: #1565c0; }
+    .timer { font-size: 20px; color: red; font-weight: bold; }
+    .number { font-size: 100px; font-weight: bold; color: #e91e63; margin: 10px; }
+    img { width: 440px; height: 220px; object-fit: contain; margin: 15px auto; display: block; }
+    button { font-size: 18px; padding: 12px 24px; margin: 8px; border: none; border-radius: 8px; cursor: pointer; }
+    .correct { background: #4CAF50; color: white; }
+    .wrong { background: #f44336; color: white; }
+    .control { background: #2196F3; color: white; }
+    .stats { font-size: 16px; margin-top: 15px; }
+    .wrong-list { color: #d32f2f; }
+    @media (max-width:600px) { .number { font-size: 80px; } img { width: 180px; height: 180px; } }
+  </style>
+</head>
+<body>
+  <h1>🔢 Numbers & Counting (1–10)</h1>
+  <div class="timer">⏱ Time Left: <span id="time">10</span>s</div>
+  <div id="number" class="number">1</div>
+  <img id="image" src="" alt="counting objects">
+  <br>
+  <button class="control" onclick="speakCurrent()">🔊 Hear Again</button>
+  <br><br>
+  <button class="correct" onclick="markCorrect()">✔ Correct</button>
+  <button class="wrong" onclick="markWrong()">❌ Incorrect</button>
+  <div class="stats">
+    <p>Total: <span id="total">0</span></p>
+    <p>Correct: <span id="correct">0</span></p>
+    <p>Incorrect: <span id="wrong">0</span></p>
+    <p class="wrong-list">Wrong Numbers: <span id="wrongList">None</span></p>
+  </div>
+  <button class="control" onclick="window.location.href='index.html'">🏠 Back to Menu</button>
+
+  <script>
+    const data = {
+      1: "One Apple", 2: "Two Balls", 3: "Three Cats", 4: "Four Dogs",
+      5: "Five Stars", 6: "Six Fish", 7: "Seven Birds", 8: "Eight Flowers",
+      9: "Nine Bananas", 10: "Ten Fingers"
+    };
+
+    const imageMap = {
+      1: "one_apple.png", 2: "two_balls.png", 3: "three_cats.png", 4: "four_dogs.png",
+      5: "five_stars.png", 6: "six_fish.png", 7: "seven_birds.png", 8: "eight_flowers.png",
+      9: "nine_bananas.png", 10: "ten_fingers.png"
+    };
+
+    let numbers = [];
+    let index = 0;
+    let current = "";
+    let locked = false;
+    let total = 0, correct = 0, wrong = 0;
+    let wrongNumbers = new Set();
+    let timeLeft = 10;
+    let timer;
+
+    startNewRound();
+
+    function startNewRound() {
+      numbers = shuffle(Object.keys(data).map(Number));
+      index = 0;
+      total = correct = wrong = 0;
+      wrongNumbers.clear();
+      update();
+      generate();
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function generate() {
+      if (index >= numbers.length) {
+        alert(`🎉 Round Complete!\nScore: ${correct}/${total} (${Math.round(correct/total*100)||0}%)`);
+        clearInterval(timer);
+        return;
+      }
+      current = numbers[index++];
+      timeLeft = 20;
+      document.getElementById("time").textContent = timeLeft;
+      display();
+      clearInterval(timer);
+      startTimer();
+    }
+
+    function display() {
+      document.getElementById("number").textContent = current;
+      document.getElementById("image").src = "images/numbers/" + imageMap[current];
+    }
+
+    function speakAndNext(text) {
+      locked = true;
+      clearInterval(timer);
+      speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'en-US';
+      msg.rate = 0.85;
+      msg.pitch = 1.1;
+      msg.onend = () => { locked = false; generate(); };
+      speechSynthesis.speak(msg);
+    }
+
+    function speakCurrent() {
+      if (!current) return;
+      const msg = new SpeechSynthesisUtterance(`${current} ... ${data[current]}`);
+      msg.rate = 0.85; msg.pitch = 1.1;
+      speechSynthesis.speak(msg);
+    }
+
+    function markCorrect() {
+      if (locked) return;
+      total++; correct++;
+      update();
+      speakAndNext(`Yes! ${current} is ${data[current]}`);
+    }
+
+    function markWrong() {
+      if (locked) return;
+      total++; wrong++;
+      wrongNumbers.add(current);
+      update();
+      speakAndNext(`No... ${current} is ${data[current]}`);
+    }
+
+    function startTimer() {
+      timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById("time").textContent = timeLeft;
+        if (timeLeft <= 0 && !locked) {
+          clearInterval(timer);
+          total++; wrong++;
+          wrongNumbers.add(current);
+          update();
+          speakAndNext(`Time up! ${current} is ${data[current]}`);
+        }
+      }, 1000);
+    }
+
+    function update() {
+      document.getElementById("total").textContent = total;
+      document.getElementById("correct").textContent = correct;
+      document.getElementById("wrong").textContent = wrong;
+      document.getElementById("wrongList").textContent = wrongNumbers.size ? [...wrongNumbers].join(", ") : "None";
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Animals & Sounds</title>
+  <style>
+    /* Same style as shapes.html – copy the <style> block above here for consistency */
+    body { font-family: Arial, sans-serif; background: #f0f8ff; text-align: center; padding: 15px; }
+    h1 { font-size: 28px; color: #1565c0; }
+    .timer { font-size: 22px; color: red; font-weight: bold; }
+    #animalImg { width: 320px; height: 320px; object-fit: contain; margin: 20px auto; display: block; border-radius: 16px; box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+    .options { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin: 30px 0; }
+    .option { font-size: 22px; padding: 16px 32px; border: none; border-radius: 12px; cursor: pointer; background: #2196F3; color: white; min-width: 140px; transition: all 0.2s; }
+    .option.correct { background: #4CAF50; transform: scale(1.1); }
+    .option.wrong { background: #f44336; animation: shake 0.4s; }
+    @keyframes shake { 0%,100% {transform: translateX(0);} 25% {transform: translateX(-8px);} 75% {transform: translateX(8px);} }
+    button.control { font-size: 18px; padding: 12px 24px; margin: 10px; background: #2196F3; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    .stats { font-size: 18px; margin-top: 20px; }
+    .wrong-list { color: #d32f2f; }
+    @media (max-width:600px) { #animalImg { width: 240px; height: 240px; } .option { font-size: 18px; padding: 12px 24px; min-width: 120px; } }
+    @media (min-width:768px) { #animalImg { width: 400px; height: 400px; } }
+  </style>
+</head>
+<body>
+  <h1>🦁 Animals & Sounds</h1>
+  <div class="timer">⏱ Time Left: <span id="time">10</span>s</div>
+  <img id="animalImg" src="" alt="animal">
+  <div class="options">
+    <button class="option" data-animal="lion">Lion</button>
+    <button class="option" data-animal="elephant">Elephant</button>
+    <button class="option" data-animal="dog">Dog</button>
+    <button class="option" data-animal="cat">Cat</button>
+  </div>
+  <button class="control" onclick="speakCurrent()">🔊 Hear Again</button>
+  <div class="stats">
+    <p>Total: <span id="total">0</span></p>
+    <p>Correct: <span id="correct">0</span></p>
+    <p>Incorrect: <span id="wrong">0</span></p>
+    <p class="wrong-list">Wrong Animals: <span id="wrongList">None</span></p>
+  </div>
+  <button class="control" onclick="window.location.href='index.html'">🏠 Back to Menu</button>
+
+  <script>
+    const animalsData = {
+      lion:     { name: "Lion",     img: "lion.png",     sound: "Roar!" },
+      elephant: { name: "Elephant", img: "elephant.png", sound: "Trumpet!" },
+      dog:      { name: "Dog",      img: "dog.png",      sound: "Woof woof!" },
+      cat:      { name: "Cat",      img: "cat.png",      sound: "Meow!" }
+    };
+
+    const animalKeys = Object.keys(animalsData);
+    let currentAnimal = "";
+    let locked = false;
+    let total = 0, correct = 0, wrong = 0;
+    let wrongAnimals = new Set();
+    let timeLeft = 10;
+    let timer;
+
+    startNewRound();
+
+    function startNewRound() {
+      total = correct = wrong = 0;
+      wrongAnimals.clear();
+      update();
+      generate();
+    }
+
+    function generate() {
+      currentAnimal = animalKeys[Math.floor(Math.random() * animalKeys.length)];
+      const item = animalsData[currentAnimal];
+      document.getElementById("animalImg").src = "images/Animal/" + item.img;
+      timeLeft = 10;
+      document.getElementById("time").textContent = timeLeft;
+      clearInterval(timer);
+      startTimer();
+      document.querySelectorAll(".option").forEach(btn => {
+        btn.classList.remove("correct", "wrong");
+      });
+    }
+
+    function speakAndNext(text) {
+      locked = true;
+      clearInterval(timer);
+      speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'en-US';
+      msg.rate = 0.85;
+      msg.pitch = 1.1;
+      msg.onend = () => { locked = false; generate(); };
+      speechSynthesis.speak(msg);
+    }
+
+    function speakCurrent() {
+      if (!currentAnimal) return;
+      const item = animalsData[currentAnimal];
+      const msg = new SpeechSynthesisUtterance(`${item.name} says ${item.sound}`);
+      msg.rate = 0.85; msg.pitch = 1.1;
+      speechSynthesis.speak(msg);
+    }
+
+    document.querySelectorAll(".option").forEach(btn => {
+      btn.onclick = () => {
+        if (locked) return;
+        const selected = btn.dataset.animal;
+        total++;
+        if (selected === currentAnimal) {
+          correct++;
+          btn.classList.add("correct");
+          const item = animalsData[currentAnimal];
+          speakAndNext(`Yes! ${item.name} says ${item.sound}`);
+        } else {
+          wrong++;
+          wrongAnimals.add(currentAnimal);
+          btn.classList.add("wrong");
+          const item = animalsData[currentAnimal];
+          speakAndNext(`No... This is ${item.name} who says ${item.sound}`);
+        }
+        update();
+      };
+    });
+
+    function startTimer() {
+      timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById("time").textContent = timeLeft;
+        if (timeLeft <= 0 && !locked) {
+          clearInterval(timer);
+          total++; wrong++;
+          wrongAnimals.add(currentAnimal);
+          update();
+          const item = animalsData[currentAnimal];
+          speakAndNext(`Time up! This is ${item.name} who says ${item.sound}`);
+        }
+      }, 1000);
+    }
+
+    function update() {
+      document.getElementById("total").textContent = total;
+      document.getElementById("correct").textContent = correct;
+      document.getElementById("wrong").textContent = wrong;
+      document.getElementById("wrongList").textContent = wrongAnimals.size ? [...wrongAnimals].join(", ") : "None";
+    }
+  </script>
+</body>
+</html>

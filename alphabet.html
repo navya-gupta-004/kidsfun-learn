@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alphabet Adventure - Voice Pilot Fixed</title>
+  <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f8ff; text-align: center; padding: 15px; }
+    h1 { font-size: 24px; }
+    .timer { font-size: 20px; color: red; font-weight: bold; }
+    .alphabet { font-size: 90px; font-weight: bold; color: #1565c0; margin: 10px; }
+    .cursive { font-family: 'Pacifico', cursive; font-size: 100px; font-weight: normal; }
+    img { width: 180px; height: 180px; object-fit: contain; }
+    button { font-size: 18px; padding: 12px 20px; margin: 6px; border: none; border-radius: 8px; cursor: pointer; }
+    .correct { background: #4CAF50; color: white; }
+    .wrong { background: #f44336; color: white; }
+    .control { background: #2196F3; color: white; }
+    .stats { font-size: 16px; margin-top: 10px; }
+    .wrong-list { color: #d32f2f; }
+    #voiceControls { margin: 20px 0; font-size: 18px; }
+    #voiceStatus { color: #d32f2f; font-weight: bold; min-height: 28px; margin: 8px 0; font-size: 17px; }
+    @media (max-width:600px) { .alphabet, .cursive { font-size: 70px; } img { width: 150px; height: 150px; } }
+  </style>
+</head>
+<body>
+  <h1>🅰️ Alphabet Adventure (Voice Pilot - Fixed)</h1>
+  <div class="timer">⏱ Time Left: <span id="time">10</span>s</div>
+  <div id="alphabet" class="alphabet">A</div>
+  <img id="image" src="">
+  <br>
+  <button class="control" onclick="toggleCase()">🔁 Upper / Lower</button>
+  <button class="control" onclick="speakCurrent()">🔊 Hear Again</button>
+  <br><br>
+  <button class="correct" onclick="markCorrect()">✔ Correct</button>
+  <button class="wrong" onclick="markWrong()">❌ Incorrect</button>
+
+  <div id="voiceControls">
+    <label style="display: block; margin: 15px 0;">
+      <input type="checkbox" id="voiceMode"> 
+      <strong>🎤 Voice Mode</strong> – say the letter (e.g. "H") or word (e.g. "Hen")
+    </label>
+    <div id="voiceStatus">Toggle Voice Mode to start listening</div>
+  </div>
+
+  <div class="stats">
+    <p>Total: <span id="total">0</span></p>
+    <p>Correct: <span id="correct">0</span></p>
+    <p>Incorrect: <span id="wrong">0</span></p>
+    <p class="wrong-list">Wrong Alphabets: <span id="wrongList">None</span></p>
+  </div>
+  <button class="control" onclick="window.location.href='index.html'">🏠 Back to Menu</button>
+
+<script>
+  const data = {A:"Apple",B:"Ball",C:"Cat",D:"Dog",E:"Elephant",F:"Fish",G:"Grapes",H:"Hen",I:"Ice Cream",J:"Jug",K:"Kite",L:"Lion",M:"Monkey",N:"Nest",O:"Orange",P:"Parrot",Q:"Queen",R:"Rabbit",S:"Sun",T:"Tiger",U:"Umbrella",V:"Van",W:"Watch",X:"X-mas Tree",Y:"Yak",Z:"Zebra"};
+  const imageMap = {A:"apple.png",B:"ball.png",C:"cat.png",D:"dog.png",E:"elephant.png",F:"fish.png",G:"grapes.png",H:"hen.png",I:"icecream.png",J:"jug.png",K:"kite.png",L:"lion.png",M:"monkey.png",N:"nest.png",O:"orange.png",P:"parrot.png",Q:"queen.png",R:"rabbit.png",S:"sun.png",T:"tiger.png",U:"umbrella.png",V:"van.png",W:"watch.png",X:"christmas.png",Y:"yak.png",Z:"zebra.png"};
+
+  let letters = [];
+  let index = 0;
+  let current = "";
+  let isUpper = true;
+  let locked = false;
+  let total = 0, correct = 0, wrong = 0;
+  let wrongAlphabets = new Set();
+  let timeLeft = 10;
+  let timer;
+
+  // Voice Recognition Setup
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let voiceModeEnabled = false;
+
+  if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-US'; // or 'en-IN'
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = true;
+
+    recognition.onstart = () => {
+      if (voiceModeEnabled && !locked) {
+        document.getElementById('voiceStatus').textContent = "Listening... say letter or word!";
+      }
+    };
+
+    recognition.onresult = (event) => {
+      if (locked || !voiceModeEnabled) return;
+
+      const spokenRaw = event.results[event.results.length - 1][0].transcript.trim();
+      const spoken = spokenRaw.toUpperCase();
+      document.getElementById('voiceStatus').textContent = `Heard: "${spokenRaw}"`;
+
+      const expectedLetter = current.toUpperCase();
+      const expectedWord = data[current].split(' ')[0].toUpperCase();
+
+      let isCorrect = (
+        spoken === expectedLetter ||
+        spoken === expectedWord ||
+        spoken.startsWith(expectedLetter + " ") ||
+        spoken.includes(expectedLetter) ||
+        spoken === expectedWord + " " + expectedLetter
+      );
+
+      // Stop recognition during feedback
+      recognition.stop();
+
+      locked = true;
+      clearInterval(timer);
+
+      total++;
+      if (isCorrect) {
+        correct++;
+        document.getElementById('voiceStatus').textContent += " → Correct!";
+        speakAndNext(`Correct! ${current} for ${data[current]}`);
+      } else {
+        wrong++;
+        wrongAlphabets.add(current);
+        document.getElementById('voiceStatus').textContent += " → Incorrect!";
+        speakAndNext(`Incorrect! It's ${current} for ${data[current]}`);
+      }
+      update();
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === 'no-speech') {
+        // Ignore silence - let it restart
+      } else {
+        document.getElementById('voiceStatus').textContent = "Voice error: " + event.error;
+      }
+    };
+
+    recognition.onend = () => {
+      // Guarded restart: only if still wanted and not locked
+      if (voiceModeEnabled && !locked && recognition) {
+        setTimeout(() => {
+          if (voiceModeEnabled && !locked && recognition) {
+            recognition.start();
+          }
+        }, 500); // Increased delay to avoid race
+      }
+    };
+  } else {
+    document.getElementById('voiceStatus').textContent = "Voice not supported";
+  }
+
+  // Toggle voice
+  document.getElementById('voiceMode').addEventListener('change', (e) => {
+    voiceModeEnabled = e.target.checked;
+    document.getElementById('voiceStatus').textContent = voiceModeEnabled
+      ? "Voice ON – speak now!"
+      : "Voice OFF";
+
+    if (voiceModeEnabled && recognition) {
+      recognition.start();
+    } else if (recognition) {
+      recognition.stop();
+    }
+  });
+
+  startNewRound();
+
+  function startNewRound() {
+    letters = shuffle(Object.keys(data));
+    index = 0;
+    total = correct = wrong = 0;
+    wrongAlphabets.clear();
+    update();
+    generate();
+  }
+
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function generate() {
+    if (index >= letters.length) {
+      alert(`🎉 Round Completed!\nScore: ${correct}/${total}`);
+      clearInterval(timer);
+      if (recognition) recognition.stop();
+      return;
+    }
+    current = letters[index++];
+    timeLeft = 10;
+    document.getElementById("time").textContent = timeLeft;
+    display();
+    clearInterval(timer);
+    startTimer();
+  }
+
+  function display() {
+    const el = document.getElementById("alphabet");
+    if (isUpper) {
+      el.textContent = current;
+      el.classList.remove("cursive");
+    } else {
+      el.textContent = current.toLowerCase();
+      el.classList.add("cursive");
+    }
+    document.getElementById("image").src = "images/alphabet/" + imageMap[current];
+  }
+
+  function speakAndNext(text) {
+    locked = true;
+    clearInterval(timer);
+    if (recognition) recognition.stop(); // Ensure stopped during speech
+
+    speechSynthesis.cancel();
+    const msg = new SpeechSynthesisUtterance(text);
+    msg.lang = 'en-US';
+    msg.rate = 0.85;
+    msg.pitch = 1.1;
+
+    msg.onend = () => {
+      locked = false;
+      generate(); // Move to next letter AFTER speech finishes
+      // Restart voice only after everything settled
+      if (voiceModeEnabled && recognition) {
+        setTimeout(() => {
+          if (voiceModeEnabled && !locked && recognition) recognition.start();
+        }, 800);
+      }
+    };
+
+    speechSynthesis.speak(msg);
+  }
+
+  function speakCurrent() {
+    if (!current) return;
+    const msg = new SpeechSynthesisUtterance(`${current} is for ${data[current]}`);
+    msg.rate = 0.85; msg.pitch = 1.1;
+    speechSynthesis.speak(msg);
+  }
+
+  function markCorrect() {
+    if (locked) return;
+    total++; correct++;
+    update();
+    speakAndNext(`Correct! ${current} for ${data[current]}`);
+  }
+
+  function markWrong() {
+    if (locked) return;
+    total++; wrong++;
+    wrongAlphabets.add(current);
+    update();
+    speakAndNext(`Incorrect! ${current} for ${data[current]}`);
+  }
+
+  function toggleCase() {
+    isUpper = !isUpper;
+    display();
+  }
+
+  function startTimer() {
+    timer = setInterval(() => {
+      timeLeft--;
+      document.getElementById("time").textContent = timeLeft;
+      if (timeLeft <= 0 && !locked) {
+        clearInterval(timer);
+        total++; wrong++;
+        wrongAlphabets.add(current);
+        update();
+        speakAndNext(`Time up! ${current} for ${data[current]}`);
+      }
+    }, 1000);
+  }
+
+  function update() {
+    document.getElementById("total").textContent = total;
+    document.getElementById("correct").textContent = correct;
+    document.getElementById("wrong").textContent = wrong;
+    document.getElementById("wrongList").textContent = 
+      wrongAlphabets.size ? [...wrongAlphabets].join(", ") : "None";
+  }
+</script>
+
+</body>
+</html>

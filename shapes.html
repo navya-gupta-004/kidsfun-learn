@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shapes Explorer</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f8ff; text-align: center; padding: 15px; }
+    h1 { font-size: 28px; color: #1565c0; }
+    .timer { font-size: 22px; color: red; font-weight: bold; }
+    #shapeImg { width: 320px; height: 320px; object-fit: contain; margin: 20px auto; display: block; border-radius: 16px; box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+    .options { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin: 30px 0; }
+    .option { font-size: 22px; padding: 16px 32px; border: none; border-radius: 12px; cursor: pointer; background: #2196F3; color: white; min-width: 140px; transition: all 0.2s; }
+    .option.correct { background: #4CAF50; transform: scale(1.1); }
+    .option.wrong { background: #f44336; animation: shake 0.4s; }
+    @keyframes shake { 0%,100% {transform: translateX(0);} 25% {transform: translateX(-8px);} 75% {transform: translateX(8px);} }
+    button.control { font-size: 18px; padding: 12px 24px; margin: 10px; background: #2196F3; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    .stats { font-size: 18px; margin-top: 20px; }
+    .wrong-list { color: #d32f2f; }
+    @media (max-width:600px) { #shapeImg { width: 240px; height: 240px; } .option { font-size: 18px; padding: 12px 24px; min-width: 120px; } }
+    @media (min-width:768px) { #shapeImg { width: 400px; height: 400px; } }
+  </style>
+</head>
+<body>
+  <h1>🔶 Shapes Explorer</h1>
+  <div class="timer">⏱ Time Left: <span id="time">10</span>s</div>
+  <img id="shapeImg" src="" alt="shape">
+  <div class="options">
+    <button class="option" data-shape="circle">Circle</button>
+    <button class="option" data-shape="square">Square</button>
+    <button class="option" data-shape="triangle">Triangle</button>
+    <button class="option" data-shape="rectangle">Rectangle</button>
+  </div>
+  <button class="control" onclick="speakCurrent()">🔊 Hear Again</button>
+  <div class="stats">
+    <p>Total: <span id="total">0</span></p>
+    <p>Correct: <span id="correct">0</span></p>
+    <p>Incorrect: <span id="wrong">0</span></p>
+    <p class="wrong-list">Wrong Shapes: <span id="wrongList">None</span></p>
+  </div>
+  <button class="control" onclick="window.location.href='index.html'">🏠 Back to Menu</button>
+
+  <script>
+    const shapesData = {
+      circle:    { name: "Circle",    img: "circle.png" },
+      square:    { name: "Square",    img: "square.png" },
+      triangle:  { name: "Triangle",  img: "triangle.png" },
+      rectangle: { name: "Rectangle", img: "rectangle.png" }
+    };
+
+    const shapeKeys = Object.keys(shapesData);
+    let currentShape = "";
+    let locked = false;
+    let total = 0, correct = 0, wrong = 0;
+    let wrongShapes = new Set();
+    let timeLeft = 10;
+    let timer;
+
+    startNewRound();
+
+    function startNewRound() {
+      total = correct = wrong = 0;
+      wrongShapes.clear();
+      update();
+      generate();
+    }
+
+    function generate() {
+      currentShape = shapeKeys[Math.floor(Math.random() * shapeKeys.length)];
+      const item = shapesData[currentShape];
+      document.getElementById("shapeImg").src = "images/shapes/" + item.img;
+      timeLeft = 10;
+      document.getElementById("time").textContent = timeLeft;
+      clearInterval(timer);
+      startTimer();
+      // Reset button styles
+      document.querySelectorAll(".option").forEach(btn => {
+        btn.classList.remove("correct", "wrong");
+      });
+    }
+
+    function speakAndNext(text) {
+      locked = true;
+      clearInterval(timer);
+      speechSynthesis.cancel();
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'en-US';
+      msg.rate = 0.85;
+      msg.pitch = 1.1;
+      msg.onend = () => { locked = false; generate(); };
+      speechSynthesis.speak(msg);
+    }
+
+    function speakCurrent() {
+      if (!currentShape) return;
+      const item = shapesData[currentShape];
+      const msg = new SpeechSynthesisUtterance(`This is a ${item.name}`);
+      msg.rate = 0.85; msg.pitch = 1.1;
+      speechSynthesis.speak(msg);
+    }
+
+    document.querySelectorAll(".option").forEach(btn => {
+      btn.onclick = () => {
+        if (locked) return;
+        const selected = btn.dataset.shape;
+        total++;
+        if (selected === currentShape) {
+          correct++;
+          btn.classList.add("correct");
+          speakAndNext(`Yes! That's a ${shapesData[currentShape].name}!`);
+        } else {
+          wrong++;
+          wrongShapes.add(currentShape);
+          btn.classList.add("wrong");
+          speakAndNext(`No... This is a ${shapesData[currentShape].name}`);
+        }
+        update();
+      };
+    });
+
+    function startTimer() {
+      timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById("time").textContent = timeLeft;
+        if (timeLeft <= 0 && !locked) {
+          clearInterval(timer);
+          total++; wrong++;
+          wrongShapes.add(currentShape);
+          update();
+          speakAndNext(`Time up! This is a ${shapesData[currentShape].name}`);
+        }
+      }, 1000);
+    }
+
+    function update() {
+      document.getElementById("total").textContent = total;
+      document.getElementById("correct").textContent = correct;
+      document.getElementById("wrong").textContent = wrong;
+      document.getElementById("wrongList").textContent = wrongShapes.size ? [...wrongShapes].join(", ") : "None";
+    }
+  </script>
+</body>
+</html>
